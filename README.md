@@ -1,113 +1,208 @@
-# GitHub Commit Bot
+# GitHub Commit Bot (macOS)
 
-Generate Organic™ GitHub activity
-<br>_My most insidious idea yet_
+A lightweight GitHub commit bot for macOS that automatically creates **one commit per day** when I log into my Mac.
 
-<br>
+This setup is based on the original Commit Bot project but modified for native macOS usage.
 
-<p align="center">
-  <img width="90%" src="./the-dream.png" alt="The Contribution Dream">
-</p>
+---
 
-<br>
+# Features
 
-Once a day (if my laptop is open),
-<br>commit-bot adds today's line:
+- Native macOS (LaunchAgent)
+- No cron
+- No SleepWatcher
+- No Accessibility/Input Monitoring permissions
+- No background polling
+- One commit per day
+- Automatically pushes to GitHub
+- Runs only after login
 
-```
-Commit: Wed Sep 25 22:00:00 EDT 2019
-```
+---
 
-This is a Bash script
-<br>designed to be run locally
-<br>(i.e. on _your_ machine)
+# How it works
 
-<br><br>
+When I log into macOS:
 
-> But [@theshteves](https://github.com/theshteves),
-> <br>I want this to run every day
+LaunchAgent
+        ↓
+run.sh
+        ↓
+(wait 20 seconds for network)
+        ↓
+bot.sh
+        ↓
+Checks if today's commit already exists
+        ↓
+If YES → Exit
+If NO  → Commit + Push
 
-_Oh hush_
+The bot only commits between **9:00 AM and 2:00 AM**.
 
-Nobody commits every day
-<br>Is that what you want?
-<br>🚫 Sorry, not today
+---
 
-We're looking for a more realistic distribution of activity throughout the year
+# Installation
 
-<br><br>
+## 1. Create a development folder
 
-## Getting Started
-
-> If you're on Windows™,
-> <br>[setup the Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10)
-
-[Install `git` if `git --version` errors out](https://github.com/git-guides/install-git)
-
-<br>
-
-1. Open your command-line
-<br>& navigate to whatever folder you prefer
-
-2. [Fork this project](https://docs.github.com/en/free-pro-team@latest/github/getting-started-with-github/fork-a-repo) on GitHub
-
-2. Download your new copy of this project
-
-```shell
-git clone https://github.com/<your-github-username>/commit-bot.git
+```bash
+mkdir -p ~/Developer
+cd ~/Developer
 ```
 
-**Don't forget to include your username**
+---
 
-3. Test run the script
-<br>in case you need to fix permissions issues
+## 2. Clone the repository
 
-```shell
-/bin/bash ./commit-bot/bot.sh
+```bash
+git clone https://github.com/YOUR_USERNAME/commit-bot.git
+cd commit-bot
 ```
 
-4. [Open your crontab](https://www.howtogeek.com/101288/how-to-schedule-tasks-on-linux-an-introduction-to-crontab-files/) to set a trigger
+---
 
-```shell
-crontab -e
+## 3. Replace bot.sh
+
+Use the modified bot.sh.
+
+Make executable:
+
+```bash
+chmod +x bot.sh
 ```
 
-> NOTE:
-> <br>If this makes your screen almost blank
-> <br>with no toolbar of keys to navigate,
-> <br>you've probably entered the text editor Vim
-> <br>
-> <br>Remember, press "i" to start [i]nserting text
-> <br>
-> <br>When you're finished,
-> <br>press "Esc" repeatedly until nothing happens
-> <br>
-> <br>Then type ":wq" to save & quit
-> <br>or ":q!" to quit without saving
+---
 
-5. Add this line to [schedule every 10pm or whenever](https://crontab.guru/#0_22_*_*_*)
+## 4. Create run.sh
 
-```shell
-0 22 * * * /bin/bash /<full-path-to-your-folder>/commit-bot/bot.sh
+```bash
+chmod +x run.sh
 ```
 
-**Do not forget to include the correct folder path**
+---
 
-> NOTE:
-> <br>Make sure you save your changes
-> <br>on your way out!
->
-> To verify your cron installation:
->
-> ```shell
-> crontab -l
-> ```
->
-> that should print the same line
-> <br>we just saved to your crontab
->
-> Now, to celebrate, test your script 🎉
->
-> ```shell
-> /bin/bash /<full-path-to-your-folder>/commit-bot/bot.sh
-> ```
+## 5. Create LaunchAgent
+
+Location:
+
+```
+~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
+```
+
+Load it:
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
+```
+
+Verify:
+
+```bash
+launchctl list | grep commitbot
+```
+
+---
+
+# Test
+
+Run manually:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.mdsufyan.commitbot
+```
+
+Logs:
+
+```bash
+cat /tmp/commitbot.log
+cat /tmp/commitbot.err
+```
+
+---
+
+# Updating
+
+To modify the bot:
+
+```bash
+nano bot.sh
+```
+
+Reload LaunchAgent:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
+launchctl load ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
+```
+
+---
+
+# Uninstall
+
+Unload LaunchAgent:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
+```
+
+Delete LaunchAgent:
+
+```bash
+rm ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
+```
+
+Delete repository:
+
+```bash
+rm -rf ~/Developer/commit-bot
+```
+
+---
+
+# What happens to my commits?
+
+### If I delete the local folder
+
+✅ Automation stops.
+
+✅ Existing commits remain on GitHub.
+
+---
+
+### If I delete the LaunchAgent
+
+✅ Automation stops.
+
+✅ Existing commits remain.
+
+---
+
+### If I delete the GitHub repository
+
+❌ The repository disappears.
+
+❌ All commits inside that repository disappear.
+
+❌ They will also disappear from the GitHub contribution graph because the repository no longer exists.
+
+---
+
+# Privacy
+
+This bot:
+
+- does not read files outside its own repository
+- does not collect personal information
+- only appends timestamps to output.txt
+- only pushes commits to my GitHub repository
+
+No third-party services are used.
+
+---
+
+# Notes
+
+This bot only creates contribution activity.
+
+It does not replace genuine development work.
+
+The best GitHub profile still comes from meaningful commits to real projects.
