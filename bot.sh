@@ -1,47 +1,38 @@
 #!/usr/bin/env bash
-#
-# Commit Bot by Steven Kneiser
-#
-# > https://github.com/theshteves/commit-bot
-#
-# Deploy locally by adding the following line to your crontab:
-# 0 22 * * * /bin/bash /<full-path-to-your-folder>/code/commit-bot/bot.sh
-#
-# Edit your crontab in vim w/ the simple command:
-# crontab -e
-#
-# Deploying just on your computer is better than a server if you want
-# your commits to more realistically mirror your computer usage.
-#
-# ...c'mon, nobody commits EVERY day ;)
-#
+
+cd "$(dirname "$0")" || exit 1
+
+hour=$(date +%H)
+
+# Only commit between 9 AM and 2 AM
+if [ "$hour" -ge 2 ] && [ "$hour" -lt 9 ]; then
+    exit 0
+fi
+
+today=$(date +"%Y-%m-%d")
+
+# Already committed today?
+if grep -q "$today" output.txt 2>/dev/null; then
+    exit 0
+fi
+
 info="Commit: $(date)"
-echo "OS detected: $OSTYPE"
-
-case "$OSTYPE" in
-    darwin*)
-        cd "`dirname $0`" || exit 1
-        ;;
-
-    linux*)
-        cd "$(dirname "$(readlink -f "$0")")" || exit 1
-        ;;
-
-    *)
-        echo "OS unsupported (submit an issue on GitHub!)"
-        ;;
-esac
-
-echo "$info" >> output.txt
-echo "$info"
-echo
-
-# Detect current branch (main, master, etc)
 branch=$(git rev-parse --abbrev-ref HEAD)
 
-# Ship it
-git add output.txt
-git commit -m "$info"
-git push origin "$branch"
+echo "$info" >> output.txt
 
-cd -
+git add output.txt
+
+if ! git commit -m "$info"; then
+    exit 1
+fi
+
+if ! git push origin "$branch"; then
+    echo "Git push failed. Will retry on the next run."
+    git reset --soft HEAD~1
+    git restore --staged output.txt
+    sed -i '' '$d' output.txt
+    exit 1
+fi
+
+echo "Commit successfully pushed to GitHub."
