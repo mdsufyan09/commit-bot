@@ -1,6 +1,6 @@
 #!/bin/bash
 
-REPO="/Users/suf/Developer/commit-bot"
+REPO="$(cd "$(dirname "$0")" && pwd)"
 
 # Wait until GitHub is reachable
 while ! /usr/bin/curl -fsI --max-time 5 https://github.com >/dev/null 2>&1
