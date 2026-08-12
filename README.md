@@ -1,8 +1,8 @@
 # GitHub Commit Bot (macOS)
 
-A lightweight GitHub commit bot for macOS that automatically creates **one commit per day** when I log into my Mac.
+A lightweight GitHub commit bot for macOS that automatically creates **one commit per day** while I am logged into my Mac.
 
-This setup is based on the original Commit Bot project but modified for native macOS usage.
+This setup is based on the original Commit Bot project but modified for native macOS usage, including network handling and hourly LaunchAgent scheduling.
 
 ---
 
@@ -12,10 +12,12 @@ This setup is based on the original Commit Bot project but modified for native m
 - No cron
 - No SleepWatcher
 - No Accessibility/Input Monitoring permissions
-- No background polling
+- Lightweight hourly checks
 - One commit per day
 - Automatically pushes to GitHub
-- Runs only after login
+- Starts automatically after login
+- Waits for GitHub/network availability before running
+- Works on Intel Macs and Apple Silicon Macs
 
 ---
 
@@ -24,17 +26,23 @@ This setup is based on the original Commit Bot project but modified for native m
 When I log into macOS:
 
 LaunchAgent
-        ↓
+↓
 run.sh
-        ↓
-(wait 20 seconds for network)
-        ↓
+↓
+Checks if GitHub is reachable
+↓
+If network is unavailable → Wait and retry
+↓
 bot.sh
-        ↓
+↓
 Checks if today's commit already exists
-        ↓
+↓
 If YES → Exit
 If NO  → Commit + Push
+
+The LaunchAgent checks once every **1 hour** while the user is logged in.
+
+The bot itself only creates **one commit per calendar day**.
 
 The bot only commits between **9:00 AM and 2:00 AM**.
 
@@ -44,39 +52,29 @@ The bot only commits between **9:00 AM and 2:00 AM**.
 
 ## 1. Create a development folder
 
-```bash
-mkdir -p ~/Developer
-cd ~/Developer
-```
+    mkdir -p ~/Developer
+    cd ~/Developer
 
 ---
 
 ## 2. Clone the repository
 
-```bash
-git clone https://github.com/YOUR_USERNAME/commit-bot.git
-cd commit-bot
-```
+    git clone https://github.com/mdsufyan09/commit-bot.git
+    cd commit-bot
 
 ---
 
-## 3. Replace bot.sh
+## 3. Make bot.sh executable
 
-Use the modified bot.sh.
-
-Make executable:
-
-```bash
-chmod +x bot.sh
-```
+    chmod +x bot.sh
 
 ---
 
-## 4. Create run.sh
+## 4. Make run.sh executable
 
-```bash
-chmod +x run.sh
-```
+    chmod +x run.sh
+
+run.sh automatically detects the location of the repository, so it does not require a hard-coded username or repository path.
 
 ---
 
@@ -84,21 +82,60 @@ chmod +x run.sh
 
 Location:
 
-```
-~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
-```
+    ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
 
-Load it:
+Create it:
 
-```bash
-launchctl load ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
-```
+    nano ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
+
+Use the following configuration:
+
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
+    <plist version="1.0">
+    <dict>
+
+        <key>Label</key>
+        <string>com.mdsufyan.commitbot</string>
+
+        <key>ProgramArguments</key>
+        <array>
+            <string>/Users/YOUR_USERNAME/Developer/commit-bot/run.sh</string>
+        </array>
+
+        <key>RunAtLoad</key>
+        <true/>
+
+        <key>StartInterval</key>
+        <integer>3600</integer>
+
+        <key>WorkingDirectory</key>
+        <string>/Users/YOUR_USERNAME/Developer/commit-bot</string>
+
+        <key>StandardOutPath</key>
+        <string>/tmp/commitbot.log</string>
+
+        <key>StandardErrorPath</key>
+        <string>/tmp/commitbot.err</string>
+
+    </dict>
+    </plist>
+
+Replace YOUR_USERNAME with your macOS username.
+
+Validate the configuration:
+
+    plutil -lint ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
+
+Load the LaunchAgent:
+
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
 
 Verify:
 
-```bash
-launchctl list | grep commitbot
-```
+    launchctl list | grep com.mdsufyan.commitbot
 
 ---
 
@@ -106,16 +143,22 @@ launchctl list | grep commitbot
 
 Run manually:
 
-```bash
-launchctl kickstart -k gui/$(id -u)/com.mdsufyan.commitbot
-```
+    launchctl kickstart -k gui/$(id -u)/com.mdsufyan.commitbot
+
+You can also test the complete script directly:
+
+    ./run.sh
 
 Logs:
 
-```bash
-cat /tmp/commitbot.log
-cat /tmp/commitbot.err
-```
+    cat /tmp/commitbot.log
+    cat /tmp/commitbot.err
+
+Check LaunchAgent status:
+
+    launchctl list | grep com.mdsufyan.commitbot
+
+The bot should create at most **one commit per calendar day**.
 
 ---
 
@@ -123,38 +166,44 @@ cat /tmp/commitbot.err
 
 To modify the bot:
 
-```bash
-nano bot.sh
-```
+    nano bot.sh
 
-Reload LaunchAgent:
+To modify the network launcher:
 
-```bash
-launchctl unload ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
-launchctl load ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
-```
+    nano run.sh
+
+After modifying either script, make sure it is executable:
+
+    chmod +x bot.sh
+    chmod +x run.sh
+
+If the LaunchAgent configuration was changed, reload it:
+
+    launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
+
+Then:
+
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
+
+Verify:
+
+    launchctl list | grep com.mdsufyan.commitbot
 
 ---
 
 # Uninstall
 
-Unload LaunchAgent:
+Unload the LaunchAgent:
 
-```bash
-launchctl unload ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
-```
+    launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
 
 Delete LaunchAgent:
 
-```bash
-rm ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
-```
+    rm ~/Library/LaunchAgents/com.mdsufyan.commitbot.plist
 
 Delete repository:
 
-```bash
-rm -rf ~/Developer/commit-bot
-```
+    rm -rf ~/Developer/commit-bot
 
 ---
 
@@ -206,3 +255,4 @@ This bot only creates contribution activity.
 It does not replace genuine development work.
 
 The best GitHub profile still comes from meaningful commits to real projects.
+
