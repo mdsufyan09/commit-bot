@@ -12,14 +12,15 @@ fi
 today=$(date +"%Y-%m-%d")
 
 # Already committed today?
-if grep -q "$today" output.txt 2>/dev/null; then
+if grep -q "^$today " output.txt 2>/dev/null; then
     exit 0
 fi
 
 info="Commit: $(date)"
+
 branch=$(git rev-parse --abbrev-ref HEAD)
 
-echo "$info" >> output.txt
+echo "$today $info" >> output.txt
 
 git add output.txt
 
@@ -29,9 +30,11 @@ fi
 
 if ! git push origin "$branch"; then
     echo "Git push failed. Will retry on the next run."
+
     git reset --soft HEAD~1
     git restore --staged output.txt
     sed -i '' '$d' output.txt
+
     exit 1
 fi
 
